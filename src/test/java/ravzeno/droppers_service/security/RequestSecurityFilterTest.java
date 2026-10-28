@@ -1,0 +1,68 @@
+package ravzeno.droppers_service.security;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockFilterChain;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+import ravzeno.droppers_service.common.security.RequestSecurityFilter;
+import ravzeno.droppers_service.common.security.RequestSecurityProperties;
+
+class RequestSecurityFilterTest {
+    private final RequestSecurityProperties properties =
+            new RequestSecurityProperties("localhost,127.0.0.1", 1, true, 30);
+    private final RequestSecurityFilter filter =
+            new RequestSecurityFilter(
+                    properties, Clock.fixed(Instant.parse("2026-10-22T00:00:00Z"), ZoneOffset.UTC));
+
+    @Test
+    void rejectsRequestsWithAnUnrecognizedHost() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setServerName("untrusted.example");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, new MockFilterChain());
+
+        assertThat(response.getStatus()).isEqualTo(400);
+    }
+
+    @Test
+    void permitsAnAllowedOriginAndAddsCorsHeaders() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setServerName("127.0.0.1");
+        request.addHeader("Origin", "http://localhost:3000");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, new MockFilterChain());
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getHeader("Access-Control-Allow-Origin"))
+                .isEqualTo("http://localhost:3000");
+    }
+
+    @Test
+    void limitsRequestsPerClient() throws Exception {
+        MockHttpServletRequest firstRequest = allowedRequest();
+        MockHttpServletResponse firstResponse = new MockHttpServletResponse();
+        filter.doFilter(firstRequest, firstResponse, new MockFilterChain());
+
+        MockHttpServletRequest secondRequest = allowedRequest();
+        MockHttpServletResponse secondResponse = new MockHttpServletResponse();
+        filter.doFilter(secondRequest, secondResponse, new MockFilterChain());
+
+        assertThat(firstResponse.getStatus()).isEqualTo(200);
+        assertThat(secondResponse.getStatus()).isEqualTo(429);
+        assertThat(secondResponse.getHeader("Retry-After")).isEqualTo("60");
+    }
+
+    private MockHttpServletRequest allowedRequest() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setServerName("127.0.0.1");
+        request.setRemoteAddr("192.0.2.1");
+        return request;
+    }
+}
