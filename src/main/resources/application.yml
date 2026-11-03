@@ -12,10 +12,6 @@ spring:
   datasource:
     url: "jdbc:sqlite:${DROPPERS_DB:${user.home}/.local/share/droppers/droppers.db}"
     driver-class-name: org.sqlite.JDBC
-  sql:
-    init:
-      mode: always
-      schema-locations: classpath:schema.sql
   jpa:
     hibernate:
       ddl-auto: none
@@ -23,6 +19,8 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.community.dialect.SQLiteDialect
+  liquibase:
+    change-log: classpath:db/changelog-master.xml
 logging:
   level:
     root: INFO

@@ -1,0 +1,33 @@
+package ravzeno.droppers_service.domains.trash;
+
+import java.io.IOException;
+import java.util.List;
+import org.springframework.web.bind.annotation.*;
+import ravzeno.droppers_service.domains.trash.dto.TrashEntryResponse;
+
+@RestController
+@RequestMapping("/api/v1/trash")
+public class TrashController {
+    private final TrashService trash;
+
+    public TrashController(TrashService trash) {
+        this.trash = trash;
+    }
+
+    @GetMapping
+    public List<TrashEntryResponse> list() {
+        return trash.list().stream()
+                .map(ravzeno.droppers_service.domains.trash.model.Trash::toDto)
+                .toList();
+    }
+
+    @PostMapping("/{id}/restore")
+    public void restore(@PathVariable String id) throws IOException {
+        trash.restore(id);
+    }
+
+    @DeleteMapping("/{id}")
+    public void permanentlyDelete(@PathVariable String id) throws IOException {
+        trash.deletePermanently(id);
+    }
+}

@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.4.xsd">
+
+    <!-- Existing installations already have these tables from schema.sql. -->
+    <changeSet id="20261103000000-create-app-settings" author="droppers">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="app_settings"/></not>
+        </preConditions>
+        <sql>CREATE TABLE app_settings (
+            setting_key TEXT PRIMARY KEY,
+            setting_value TEXT NOT NULL
+        )</sql>
+    </changeSet>
+
+    <changeSet id="20261103000000-create-trash-entries" author="droppers">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="trash_entries"/></not>
+        </preConditions>
+        <sql>CREATE TABLE trash_entries (
+            id TEXT PRIMARY KEY,
+            original_path TEXT NOT NULL,
+            stored_path TEXT NOT NULL,
+            item_name TEXT NOT NULL,
+            item_type TEXT NOT NULL,
+            size_bytes INTEGER,
+            deleted_at TEXT NOT NULL
+        )</sql>
+    </changeSet>
+
+    <changeSet id="20261103000000-create-devices" author="droppers">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="devices"/></not>
+        </preConditions>
+        <sql>CREATE TABLE devices (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            token_hash TEXT NOT NULL,
+            paired_at TEXT NOT NULL,
+            last_seen_at TEXT
+        )</sql>
+    </changeSet>
+
+    <changeSet id="20261103000000-create-device-sessions" author="droppers">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="device_sessions"/></not>
+        </preConditions>
+        <sql>CREATE TABLE device_sessions (
+            id TEXT PRIMARY KEY,
+            device_id TEXT NOT NULL,
+            token_hash TEXT NOT NULL UNIQUE,
+            expires_at TEXT NOT NULL,
+            revoked_at TEXT
+        )</sql>
+    </changeSet>
+
+    <changeSet id="20261103000000-create-pairing-sessions" author="droppers">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="pairing_sessions"/></not>
+        </preConditions>
+        <sql>CREATE TABLE pairing_sessions (
+            id TEXT PRIMARY KEY,
+            code TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            consumed_at TEXT
+        )</sql>
+    </changeSet>
+
+    <changeSet id="20261103000000-create-pairing-claims" author="droppers">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="pairing_claims"/></not>
+        </preConditions>
+        <sql>CREATE TABLE pairing_claims (
+            id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            device_id TEXT NOT NULL,
+            device_name TEXT NOT NULL,
+            pair_token_hash TEXT NOT NULL,
+            status TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )</sql>
+    </changeSet>
+
+    <changeSet id="20261103000000-create-upload-transfers" author="droppers">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="upload_transfers"/></not>
+        </preConditions>
+        <sql>CREATE TABLE upload_transfers (
+            id TEXT PRIMARY KEY,
+            destination_path TEXT NOT NULL,
+            file_name TEXT NOT NULL,
+            expected_bytes INTEGER,
+            transferred_bytes INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL,
+            failure_reason TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )</sql>
+    </changeSet>
+
+    <changeSet id="20261103000000-create-device-session-token-index" author="droppers">
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <tableExists tableName="device_sessions"/>
+                <not><indexExists indexName="idx_device_sessions_token" tableName="device_sessions"/></not>
+            </and>
+        </preConditions>
+        <sql>CREATE INDEX idx_device_sessions_token
+            ON device_sessions(token_hash, expires_at)</sql>
+    </changeSet>
+
+    <changeSet id="20261103000000-create-pairing-claims-status-index" author="droppers">
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <tableExists tableName="pairing_claims"/>
+                <not><indexExists indexName="idx_pairing_claims_status" tableName="pairing_claims"/></not>
+            </and>
+        </preConditions>
+        <sql>CREATE INDEX idx_pairing_claims_status
+            ON pairing_claims(status, created_at)</sql>
+    </changeSet>
+
+    <changeSet id="20261103000000-create-upload-transfers-updated-index" author="droppers">
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <tableExists tableName="upload_transfers"/>
+                <not><indexExists indexName="idx_upload_transfers_updated_at" tableName="upload_transfers"/></not>
+            </and>
+        </preConditions>
+        <sql>CREATE INDEX idx_upload_transfers_updated_at
+            ON upload_transfers(updated_at DESC)</sql>
+    </changeSet>
+</databaseChangeLog>

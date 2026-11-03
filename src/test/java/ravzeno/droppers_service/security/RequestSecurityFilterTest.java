@@ -9,8 +9,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
-import ravzeno.droppers_service.common.security.RequestSecurityFilter;
-import ravzeno.droppers_service.common.security.RequestSecurityProperties;
+import ravzeno.droppers_service.commons.security.RequestSecurityFilter;
+import ravzeno.droppers_service.commons.security.RequestSecurityProperties;
 
 class RequestSecurityFilterTest {
     private final RequestSecurityProperties properties =

@@ -95,8 +95,24 @@ Format source files and verify formatting:
 ## Project layout
 
 ```
-src/main/java/       Application source and HTTP API
-src/main/resources/  Spring configuration and SQLite schema
-src/test/java/       Unit and integration-style tests
-scripts/             Local development helpers
+src/main/java/ravzeno/droppers_service/
+  commons/             Shared configuration, converters, security, and exceptions
+  domains/<feature>/   Feature-focused code (device, file, pairing, storage, ...)
+    *JpaRepository.java Spring Data repositories, injected directly into services
+    dto/              Request and response types
+    model/            Domain models, enums, and JPA entities
+src/main/resources/   Spring configuration and Liquibase database changelogs
+src/test/java/        Unit and integration-style tests
+scripts/              Local development helpers
 ```
+
+Keep feature entities and enums in `model`, and use Spring Data repositories
+directly from services/components. Avoid wrapper repositories that only forward
+calls; keep multi-entity transaction boundaries in the service. Entities should
+map the existing SQLite table names explicitly, store enums as strings, and use
+the shared converter for `Instant` columns.
+
+Database schema changes are versioned in `src/main/resources/db/changelogs/`
+and applied by Liquibase at application startup. Existing SQLite databases
+created by the old `schema.sql` initializer are baselined by the initial
+changelog without recreating their tables.
