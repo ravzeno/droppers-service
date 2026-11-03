@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @AllArgsConstructor
-@RequestMapping("/api/v1/mobile/storage")
+@RequestMapping("/device/api/v1/mobile/storage")
 public class MobileStorageController {
     private final StorageService storageService;
 

@@ -19,7 +19,7 @@ spring:
     default-property-inclusion: non_null
   datasource:
     driver-class-name: org.h2.Driver
-    url: jdbc:h2:mem:droppers_test;INIT=create domain if not exists jsonb as text;MODE=PostgreSQL
+    url: jdbc:h2:mem:droppers_test;INIT=create domain if not exists jsonb as text;MODE=PostgreSQL;NON_KEYWORDS=KEY,VALUE
     username: sa
     password: password
   liquibase:
@@ -32,3 +32,5 @@ droppers:
     requests-per-minute: ${DROPPERS_RATE_LIMIT_PER_MINUTE:120}
     require-tls-for-lan: ${DROPPERS_REQUIRE_TLS_FOR_LAN:true}
     device-session-ttl-days: ${DROPPERS_DEVICE_SESSION_TTL_DAYS:30}
+    admin-token: ${DROPPERS_ADMIN_TOKEN:}
+    trusted-proxies: ${DROPPERS_TRUSTED_PROXIES:}

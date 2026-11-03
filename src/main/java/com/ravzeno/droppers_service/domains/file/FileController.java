@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
-@RequestMapping("/api/v1/files")
+@RequestMapping("/device/api/v1/files")
 @AllArgsConstructor
 public class FileController {
 

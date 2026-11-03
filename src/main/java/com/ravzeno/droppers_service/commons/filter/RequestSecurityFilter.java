@@ -1,50 +1,43 @@
-package com.ravzeno.droppers_service.commons.security;
+package com.ravzeno.droppers_service.commons.filter;
 
-import com.ravzeno.droppers_service.domains.device.DeviceService;
+import com.ravzeno.droppers_service.commons.security.config.RequestSecurityProperties;
 import jakarta.annotation.Nonnull;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Clock;
 import java.util.Arrays;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-@Component
 public class RequestSecurityFilter extends OncePerRequestFilter {
     private static final long RATE_LIMIT_WINDOW_MILLIS = 60_000;
+    private static final int MAX_RATE_LIMIT_CLIENTS = 10_000;
     private static final int STATUS_UPGRADE_REQUIRED = 426;
 
     private final RequestSecurityProperties properties;
     private final Set<String> allowedHosts;
-    private final ConcurrentHashMap<String, RateLimitWindow> rateLimits = new ConcurrentHashMap<>();
+    private final Map<String, RateLimitWindow> rateLimits = new LinkedHashMap<>(16, 0.75f, true);
     private final Clock clock;
-    private final DeviceService devices;
 
-    @Autowired
-    public RequestSecurityFilter(RequestSecurityProperties properties, DeviceService devices) {
-        this(properties, Clock.systemUTC(), devices);
+    public RequestSecurityFilter(RequestSecurityProperties properties) {
+        this(properties, Clock.systemUTC());
     }
 
     public RequestSecurityFilter(RequestSecurityProperties properties, Clock clock) {
-        this(properties, clock, null);
-    }
-
-    private RequestSecurityFilter(
-            RequestSecurityProperties properties, Clock clock, DeviceService devices) {
         this.properties = properties;
         this.clock = clock;
-        this.devices = devices;
         allowedHosts =
                 Arrays.stream(properties.allowedHosts().split(","))
                         .map(String::trim)
@@ -63,7 +56,7 @@ public class RequestSecurityFilter extends OncePerRequestFilter {
             reject(response, HttpServletResponse.SC_BAD_REQUEST, "Unrecognized Host header");
             return;
         }
-        if (properties.requireTlsForLan() && isLanRequest(request) && !request.isSecure()) {
+        if (properties.requireTlsForLan() && isLanRequest(request) && !isSecureRequest(request)) {
             reject(response, STATUS_UPGRADE_REQUIRED, "TLS is required for LAN access");
             return;
         }
@@ -80,30 +73,11 @@ public class RequestSecurityFilter extends OncePerRequestFilter {
             response.setStatus(HttpServletResponse.SC_NO_CONTENT);
             return;
         }
-        if (isLanRequest(request) && requiresDeviceToken(request.getRequestURI())) {
-            try {
-                if (devices == null) {
-                    reject(
-                            response,
-                            HttpServletResponse.SC_UNAUTHORIZED,
-                            "Valid device token is required");
-                    return;
-                }
-                devices.authenticate(request.getHeader("X-Droppers-Token"));
-            } catch (RuntimeException exception) {
-                reject(
-                        response,
-                        HttpServletResponse.SC_UNAUTHORIZED,
-                        "Valid device token is required");
-                return;
-            }
-        }
-        if (!withinRateLimit(request.getRemoteAddr())) {
+        if (!withinRateLimit(clientAddress(request))) {
             response.setHeader(HttpHeaders.RETRY_AFTER, "60");
             reject(response, 429, "Too many requests");
             return;
         }
-
         filterChain.doFilter(request, response);
     }
 
@@ -123,32 +97,67 @@ public class RequestSecurityFilter extends OncePerRequestFilter {
     }
 
     private boolean isLanRequest(HttpServletRequest request) {
-        String host = request.getServerName().toLowerCase();
-        return !host.equals("localhost") && !host.equals("127.0.0.1") && !host.equals("::1");
+        if (!isTrustedProxy(request.getRemoteAddr())
+                && isLoopback(request.getRemoteAddr())
+                && (request.getHeader("X-Forwarded-For") != null
+                        || request.getHeader("X-Forwarded-Proto") != null)) {
+            return true;
+        }
+        return !isLoopback(clientAddress(request));
     }
 
-    private boolean requiresDeviceToken(String path) {
-        return path.startsWith("/api/v1/files")
-                || path.startsWith("/api/v1/folders")
-                || path.startsWith("/api/v1/trash")
-                || path.startsWith("/api/v1/transfers/uploads")
-                || path.equals("/api/v1/mobile/storage");
+    private boolean isLoopback(String address) {
+        try {
+            return InetAddress.getByName(address).isLoopbackAddress();
+        } catch (Exception exception) {
+            return false;
+        }
     }
 
-    private boolean withinRateLimit(String remoteAddress) {
+    private String clientAddress(HttpServletRequest request) {
+        String remoteAddress = request.getRemoteAddr();
+        if (!isTrustedProxy(remoteAddress)) {
+            return remoteAddress;
+        }
+        String forwardedFor = request.getHeader("X-Forwarded-For");
+        return forwardedFor == null || forwardedFor.isBlank()
+                ? remoteAddress
+                : forwardedFor.split(",", 2)[0].trim();
+    }
+
+    private boolean isSecureRequest(HttpServletRequest request) {
+        return request.isSecure()
+                || (isTrustedProxy(request.getRemoteAddr())
+                        && "https"
+                                .equalsIgnoreCase(
+                                        firstHeaderValue(request.getHeader("X-Forwarded-Proto"))));
+    }
+
+    private String firstHeaderValue(String value) {
+        return value == null ? "" : value.split(",", 2)[0].trim();
+    }
+
+    private boolean isTrustedProxy(String remoteAddress) {
+        return Arrays.stream(properties.trustedProxies().split(","))
+                .map(String::trim)
+                .anyMatch(proxy -> !proxy.isEmpty() && proxy.equals(remoteAddress));
+    }
+
+    private synchronized boolean withinRateLimit(String remoteAddress) {
         long now = clock.millis();
-        RateLimitWindow window =
-                rateLimits.compute(
-                        remoteAddress,
-                        (key, current) -> {
-                            if (current == null
-                                    || now - current.startedAtMillis()
-                                            >= RATE_LIMIT_WINDOW_MILLIS) {
-                                return new RateLimitWindow(now, 1);
-                            }
-                            return new RateLimitWindow(
-                                    current.startedAtMillis(), current.requestCount() + 1);
-                        });
+        RateLimitWindow current = rateLimits.get(remoteAddress);
+        RateLimitWindow window;
+        if (current == null || now - current.startedAtMillis() >= RATE_LIMIT_WINDOW_MILLIS) {
+            if (current == null && rateLimits.size() >= MAX_RATE_LIMIT_CLIENTS) {
+                Iterator<String> oldestClient = rateLimits.keySet().iterator();
+                oldestClient.next();
+                oldestClient.remove();
+            }
+            window = new RateLimitWindow(now, 1);
+        } else {
+            window = new RateLimitWindow(current.startedAtMillis(), current.requestCount() + 1);
+        }
+        rateLimits.put(remoteAddress, window);
         return window.requestCount() <= properties.requestsPerMinute();
     }
 
@@ -158,7 +167,7 @@ public class RequestSecurityFilter extends OncePerRequestFilter {
                 HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "GET,POST,PUT,PATCH,DELETE,OPTIONS");
         response.setHeader(
                 HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS,
-                "Content-Type, X-Droppers-Token, X-Pairing-Claim-Token");
+                "Content-Type, X-Droppers-Token, X-Droppers-Admin-Token, X-Pairing-Claim-Token");
         response.setHeader(HttpHeaders.ACCESS_CONTROL_MAX_AGE, "600");
         response.setHeader(HttpHeaders.VARY, HttpHeaders.ORIGIN);
     }

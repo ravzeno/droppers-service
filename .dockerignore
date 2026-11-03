@@ -1,0 +1,11 @@
+.git
+.gitignore
+.gradle
+.idea
+.vscode
+build
+env
+secret
+reports
+temp_files
+*.iml

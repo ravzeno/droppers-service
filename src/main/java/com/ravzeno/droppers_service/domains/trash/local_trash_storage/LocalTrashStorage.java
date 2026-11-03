@@ -2,7 +2,7 @@ package com.ravzeno.droppers_service.domains.trash.local_trash_storage;
 
 import java.io.IOException;
 import java.nio.file.*;
-import java.util.Comparator;
+import java.nio.file.attribute.BasicFileAttributes;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -20,18 +20,87 @@ public class LocalTrashStorage {
         return slot;
     }
 
+    public void move(Path source, Path destination) throws IOException {
+        FileStore sourceStore = Files.getFileStore(source);
+        FileStore destinationStore = Files.getFileStore(destination.getParent());
+        if (sourceStore.equals(destinationStore)) {
+            Files.move(source, destination);
+            return;
+        }
+
+        copyAcrossFileStores(source, destination);
+        remove(source);
+    }
+
     public void remove(Path path) throws IOException {
-        if (!Files.exists(path)) return;
-        try (var walk = Files.walk(path)) {
-            walk.sorted(Comparator.reverseOrder())
-                    .forEach(
-                            p -> {
-                                try {
-                                    Files.deleteIfExists(p);
-                                } catch (IOException e) {
-                                    throw new java.io.UncheckedIOException(e);
-                                }
-                            });
+        if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
+            return;
+        }
+        Files.walkFileTree(
+                path,
+                new SimpleFileVisitor<>() {
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attributes)
+                            throws IOException {
+                        Files.delete(file);
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public FileVisitResult postVisitDirectory(Path directory, IOException error)
+                            throws IOException {
+                        if (error != null) {
+                            throw error;
+                        }
+                        Files.delete(directory);
+                        return FileVisitResult.CONTINUE;
+                    }
+                });
+    }
+
+    private void copyAcrossFileStores(Path source, Path destination) throws IOException {
+        try {
+            Files.walkFileTree(
+                    source,
+                    new SimpleFileVisitor<>() {
+                        @Override
+                        public FileVisitResult preVisitDirectory(
+                                Path directory, BasicFileAttributes attributes) throws IOException {
+                            Path target = destination.resolve(source.relativize(directory));
+                            Files.createDirectory(target);
+                            return FileVisitResult.CONTINUE;
+                        }
+
+                        @Override
+                        public FileVisitResult visitFile(Path file, BasicFileAttributes attributes)
+                                throws IOException {
+                            Path target = destination.resolve(source.relativize(file));
+                            if (attributes.isSymbolicLink()) {
+                                Files.createSymbolicLink(target, Files.readSymbolicLink(file));
+                            } else {
+                                Files.copy(file, target, StandardCopyOption.COPY_ATTRIBUTES);
+                            }
+                            return FileVisitResult.CONTINUE;
+                        }
+
+                        @Override
+                        public FileVisitResult postVisitDirectory(Path directory, IOException error)
+                                throws IOException {
+                            if (error != null) {
+                                throw error;
+                            }
+                            Path target = destination.resolve(source.relativize(directory));
+                            Files.setLastModifiedTime(target, Files.getLastModifiedTime(directory));
+                            return FileVisitResult.CONTINUE;
+                        }
+                    });
+        } catch (IOException | RuntimeException exception) {
+            try {
+                remove(destination);
+            } catch (IOException | RuntimeException cleanupException) {
+                exception.addSuppressed(cleanupException);
+            }
+            throw exception;
         }
     }
 }

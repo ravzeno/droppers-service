@@ -1,8 +1,7 @@
 package com.ravzeno.droppers_service.ci.key_generate;
 
-import org.junit.jupiter.api.Test;
-
 import java.security.SecureRandom;
+import org.junit.jupiter.api.Test;
 
 public class KeyGeneratorCI {
     private static final String CHARACTERS =

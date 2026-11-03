@@ -64,6 +64,18 @@ public class StorageService {
         return info();
     }
 
+    @Transactional(readOnly = true)
+    public String healthStatus() {
+        Optional<Path> root = configuredRoot();
+        if (root.isEmpty()) {
+            return "NOT_CONFIGURED";
+        }
+        Path path = root.get();
+        return Files.isDirectory(path) && Files.isReadable(path) && Files.isWritable(path)
+                ? "UP"
+                : "DOWN";
+    }
+
     private Optional<Path> configuredRoot() {
         return settings.findById(STORAGE_ROOT_KEY).map(AppSetting::getValue).map(Path::of);
     }

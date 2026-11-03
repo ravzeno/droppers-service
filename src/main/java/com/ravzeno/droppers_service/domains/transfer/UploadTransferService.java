@@ -1,5 +1,6 @@
 package com.ravzeno.droppers_service.domains.transfer;
 
+import com.ravzeno.droppers_service.commons.config.UploadProperties;
 import com.ravzeno.droppers_service.commons.exception.core.FileConflictException;
 import com.ravzeno.droppers_service.commons.exception.core.InvalidRequestException;
 import com.ravzeno.droppers_service.commons.exception.core.ResourceNotFoundException;
@@ -31,11 +32,16 @@ public class UploadTransferService {
     private final UploadStagingStorage staging;
     private final UploadTransferRepository transfers;
     private final UploadTransferMapper mapper;
+    private final UploadProperties uploadProperties;
 
     @Transactional
-    public void create(String destinationPath, String fileName, Long expectedBytes) {
+    public UploadTransferResponse create(
+            String destinationPath, String fileName, Long expectedBytes) {
         paths.resolveDirectory(destinationPath);
         paths.validateFileName(fileName);
+        if (expectedBytes != null) {
+            uploadProperties.validateFileSize(expectedBytes);
+        }
 
         Instant now = Instant.now();
 
@@ -50,13 +56,22 @@ public class UploadTransferService {
                         .updatedAt(now)
                         .build();
 
-        transfers.save(transfer);
+        return mapper.toDto(transfers.save(transfer));
     }
 
     public UploadTransferResponse upload(UUID id, InputStream input) throws IOException {
         var transfer = requireStaging(id);
         Path stagedFile = staging.fileFor(id);
-        long transferredBytes = streamToStaging(transfer, stagedFile, input);
+        long transferredBytes;
+        try {
+            transferredBytes = streamToStaging(transfer, stagedFile, input);
+        } catch (InvalidRequestException exception) {
+            fail(id, TransferStatus.FAILED, exception.getMessage());
+            throw exception;
+        } catch (IOException exception) {
+            fail(id, TransferStatus.FAILED, "Unable to stage the uploaded content");
+            throw exception;
+        }
         if (!isStaging(id)) {
             staging.remove(id);
             return require(id);
@@ -137,6 +152,9 @@ public class UploadTransferService {
             for (int bytesRead; (bytesRead = input.read(buffer)) >= 0; ) {
                 if (!isStaging(transfer.getId())) {
                     break;
+                }
+                if (bytesRead > 0) {
+                    uploadProperties.validateNextChunkSize(transferredBytes, bytesRead);
                 }
                 output.write(buffer, 0, bytesRead);
                 transferredBytes += bytesRead;

@@ -1,13 +1,16 @@
 package com.ravzeno.droppers_service.domains.file;
 
+import com.ravzeno.droppers_service.commons.config.UploadProperties;
 import com.ravzeno.droppers_service.commons.exception.core.FileConflictException;
 import com.ravzeno.droppers_service.commons.exception.core.InvalidRequestException;
 import com.ravzeno.droppers_service.domains.file.dto.FileEntryResponse;
 import com.ravzeno.droppers_service.domains.file.dto.FileListResponse;
 import com.ravzeno.droppers_service.domains.storage.SecurePathResolver;
 import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -18,13 +21,10 @@ public class FileService {
     private final SecurePathResolver paths;
     private final LocalFileSystem fs;
     private final FileMapper mapper;
+    private final UploadProperties uploadProperties;
 
     public FileListResponse list(String path) throws IOException {
         return mapper.toListDto(path, fs.list(paths.resolveDirectory(path)));
-    }
-
-    public FileEntryResponse createFolder(String parentPath, String name) throws IOException {
-        return mapper.toDto(fs.createDirectory(paths.resolveForCreation(parentPath, name)));
     }
 
     public FileEntryResponse rename(String rawPath, String newName) throws IOException {
@@ -53,17 +53,23 @@ public class FileService {
         if (upload == null || upload.isEmpty()) {
             throw new InvalidRequestException("Choose a file to upload");
         }
+        uploadProperties.validateFileSize(upload.getSize());
         String originalName = upload.getOriginalFilename();
         if (originalName == null) {
             throw new InvalidRequestException("Uploaded file has no name");
         }
         String fileName = Path.of(originalName).getFileName().toString();
+        paths.validateFileName(fileName);
         Path target = paths.resolveForCreation(destinationPath, fileName);
-        if (Files.exists(target)) {
-            throw new FileConflictException(fileName + " already exists");
-        }
         try (var input = upload.getInputStream()) {
-            Files.copy(input, target);
+            try (var output = Files.newOutputStream(target, StandardOpenOption.CREATE_NEW)) {
+                input.transferTo(output);
+            } catch (FileAlreadyExistsException exception) {
+                throw new FileConflictException(fileName + " already exists");
+            } catch (IOException exception) {
+                Files.deleteIfExists(target);
+                throw exception;
+            }
         }
         return mapper.toDto(fs.entry(target));
     }

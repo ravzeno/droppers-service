@@ -14,15 +14,20 @@ import com.ravzeno.droppers_service.domains.trash.local_trash_storage.LocalTrash
 import com.ravzeno.droppers_service.domains.trash.model.Trash;
 import java.io.IOException;
 import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
 import java.util.*;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 @AllArgsConstructor
+@Slf4j
 public class TrashService {
     private final FileService files;
     private final SecurePathResolver paths;
@@ -57,11 +62,12 @@ public class TrashService {
         }
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void trash(String rawPath) throws IOException {
         Path source = files.existing(rawPath);
         if (paths.isRoot(source))
             throw new InvalidRequestException("Storage root operation is not allowed");
+        long size = size(source);
         Trash entry =
                 entries.save(
                         Trash.builder()
@@ -76,21 +82,41 @@ public class TrashService {
                                 .deletedAt(Instant.now())
                                 .build());
         String id = entry.getId().toString();
-        Path slot = storage.createSlot(id), target = slot.resolve(source.getFileName());
+        Path slot = null;
+        Path target = null;
         try {
-            Files.move(source, target);
-            long size = size(target);
+            slot = storage.createSlot(id);
+            target = slot.resolve(source.getFileName());
+            registerTrashRollback(source, target, slot);
+            storage.move(source, target);
             entry.setStoredPath(id + "/" + source.getFileName());
             entry.setSizeBytes(size);
             entries.save(entry);
         } catch (IOException | RuntimeException e) {
-            storage.remove(slot);
-            entries.delete(entry);
+            try {
+                if (target != null && Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+                    if (!Files.exists(source, LinkOption.NOFOLLOW_LINKS)) {
+                        storage.move(target, source);
+                    } else {
+                        log.error(
+                                "Trash move left a second copy at {}; preserving it after failure",
+                                target,
+                                e);
+                        slot = null;
+                    }
+                }
+                if (slot != null) {
+                    storage.remove(slot);
+                }
+                entries.delete(entry);
+            } catch (IOException | RuntimeException cleanupException) {
+                e.addSuppressed(cleanupException);
+            }
             throw e;
         }
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void restore(UUID id) throws IOException {
         Trash entry = require(id);
         Path stored = storage.root().resolve(entry.getStoredPath()).normalize();
@@ -100,16 +126,93 @@ public class TrashService {
                 paths.resolveForCreation(
                         parent(entry.getOriginalPath()), fileName(entry.getOriginalPath()));
         Path target = uniqueRestoredName(original);
-        Files.move(stored, target);
-        storage.remove(stored.getParent());
-        entries.deleteById(id);
+        boolean moved = false;
+        try {
+            storage.move(stored, target);
+            moved = true;
+            entries.deleteById(id);
+        } catch (IOException | RuntimeException e) {
+            if (moved) {
+                try {
+                    storage.move(target, stored);
+                } catch (IOException | RuntimeException rollbackException) {
+                    e.addSuppressed(rollbackException);
+                }
+            }
+            throw e;
+        }
+        registerRestoreCompletion(stored, target);
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void deletePermanently(UUID id) throws IOException {
         Trash entry = require(id);
-        storage.remove(storage.root().resolve(entry.getStoredPath()).getParent());
+        Path slot = storage.root().resolve(entry.getStoredPath()).getParent();
         entries.deleteById(id);
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        try {
+                            storage.remove(slot);
+                        } catch (IOException | RuntimeException cleanupException) {
+                            log.warn(
+                                    "Could not permanently remove trash data at {}",
+                                    slot,
+                                    cleanupException);
+                        }
+                    }
+                });
+    }
+
+    private void registerTrashRollback(Path source, Path target, Path slot) {
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCompletion(int status) {
+                        if (status == STATUS_COMMITTED) {
+                            return;
+                        }
+                        try {
+                            if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)
+                                    && !Files.exists(source, LinkOption.NOFOLLOW_LINKS)) {
+                                storage.move(target, source);
+                            }
+                            if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+                                storage.remove(slot);
+                            }
+                        } catch (IOException | RuntimeException rollbackException) {
+                            log.error(
+                                    "Could not roll back trash move from {} to {}",
+                                    source,
+                                    target,
+                                    rollbackException);
+                        }
+                    }
+                });
+    }
+
+    private void registerRestoreCompletion(Path stored, Path target) {
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCompletion(int status) {
+                        try {
+                            if (status == STATUS_COMMITTED) {
+                                storage.remove(stored.getParent());
+                            } else if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)
+                                    && !Files.exists(stored, LinkOption.NOFOLLOW_LINKS)) {
+                                storage.move(target, stored);
+                            }
+                        } catch (IOException | RuntimeException completionException) {
+                            log.error(
+                                    "Could not complete trash restore from {} to {}",
+                                    stored,
+                                    target,
+                                    completionException);
+                        }
+                    }
+                });
     }
 
     private Trash require(UUID id) {
@@ -141,17 +244,19 @@ public class TrashService {
 
     private long size(Path path) throws IOException {
         if (Files.isRegularFile(path)) return Files.size(path);
-        try (var walk = Files.walk(path)) {
-            return walk.filter(Files::isRegularFile)
-                    .mapToLong(
-                            p -> {
-                                try {
-                                    return Files.size(p);
-                                } catch (IOException e) {
-                                    return 0;
-                                }
-                            })
-                    .sum();
-        }
+        var size = new long[1];
+        Files.walkFileTree(
+                path,
+                new SimpleFileVisitor<>() {
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attributes)
+                            throws IOException {
+                        if (attributes.isRegularFile()) {
+                            size[0] = Math.addExact(size[0], attributes.size());
+                        }
+                        return FileVisitResult.CONTINUE;
+                    }
+                });
+        return size[0];
     }
 }

@@ -3,7 +3,7 @@ package com.ravzeno.droppers_service.domains.device;
 import com.ravzeno.droppers_service.commons.dto.PageOption;
 import com.ravzeno.droppers_service.commons.dto.PageResponse;
 import com.ravzeno.droppers_service.commons.dto.SuccessResponse;
-import com.ravzeno.droppers_service.domains.device.dto.DeviceDto;
+import com.ravzeno.droppers_service.domains.device.dto.get_all.DeviceDto;
 import com.ravzeno.droppers_service.domains.device.dto.get_all.GetAllDeviceCriteria;
 import com.ravzeno.droppers_service.domains.device.dto.get_all.GetAllDeviceSort;
 import jakarta.validation.Valid;
@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @AllArgsConstructor
-@RequestMapping("/api/v1/devices")
+@RequestMapping("/back-office/api/v1/devices")
 public class DeviceController {
     private final DeviceService deviceService;
 

@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @AllArgsConstructor
-@RequestMapping("/api/v1/trash")
+@RequestMapping("/device/api/v1/trash")
 public class TrashController {
     private final TrashService trash;
 

@@ -15,7 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 public interface UploadTransferRepository extends JpaRepository<UploadTransfer, UUID> {
     List<UploadTransfer> findAllByOrderByUpdatedAtDesc(Limit limit);
 
-    @Modifying
+    List<UploadTransfer> findAllByStatusAndUpdatedAtBefore(TransferStatus status, Instant cutoff);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
     @Query(
             """
@@ -28,7 +30,7 @@ public interface UploadTransferRepository extends JpaRepository<UploadTransfer, 
             @Param("updatedAt") Instant updatedAt,
             @Param("staging") TransferStatus staging);
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
     @Query(
             """
@@ -43,7 +45,7 @@ public interface UploadTransferRepository extends JpaRepository<UploadTransfer, 
             @Param("updatedAt") Instant updatedAt,
             @Param("staging") TransferStatus staging);
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
     @Query(
             """

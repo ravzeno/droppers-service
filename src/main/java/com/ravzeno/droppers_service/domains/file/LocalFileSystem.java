@@ -5,7 +5,6 @@ import com.ravzeno.droppers_service.domains.file.model.FileEntry;
 import com.ravzeno.droppers_service.domains.file.model.FileType;
 import com.ravzeno.droppers_service.domains.storage.SecurePathResolver;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.file.*;
 import java.util.*;
 import org.springframework.stereotype.Component;
@@ -19,14 +18,19 @@ public class LocalFileSystem {
     }
 
     public List<FileEntry> list(Path directory) throws IOException {
-        try (var stream = Files.list(directory)) {
-            return stream.filter(p -> !Files.isSymbolicLink(p))
-                    .map(this::entryUnchecked)
-                    .sorted(
-                            Comparator.comparing((FileEntry e) -> e.type() != FileType.DIRECTORY)
-                                    .thenComparing(FileEntry::name, String.CASE_INSENSITIVE_ORDER))
-                    .toList();
+        Path storageRoot = paths.root();
+        List<FileEntry> entries = new ArrayList<>();
+        try (DirectoryStream<Path> children = Files.newDirectoryStream(directory)) {
+            for (Path child : children) {
+                if (!Files.isSymbolicLink(child)) {
+                    entries.add(entry(child, storageRoot));
+                }
+            }
         }
+        entries.sort(
+                Comparator.comparing((FileEntry entry) -> entry.type() != FileType.DIRECTORY)
+                        .thenComparing(FileEntry::name, String.CASE_INSENSITIVE_ORDER));
+        return List.copyOf(entries);
     }
 
     public FileEntry createDirectory(Path path) throws IOException {
@@ -44,22 +48,18 @@ public class LocalFileSystem {
     }
 
     public FileEntry entry(Path path) throws IOException {
+        return entry(path, paths.root());
+    }
+
+    private FileEntry entry(Path path, Path storageRoot) throws IOException {
         boolean directory = Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS);
         return new FileEntry(
                 path.getFileName().toString(),
-                paths.relative(path),
+                storageRoot.relativize(path).toString().replace('\\', '/'),
                 directory ? FileType.DIRECTORY : FileType.FILE,
                 directory ? 0 : Files.size(path),
                 directory ? null : Files.probeContentType(path),
                 Files.getLastModifiedTime(path).toInstant(),
                 path.getFileName().toString().startsWith("."));
-    }
-
-    private FileEntry entryUnchecked(Path path) {
-        try {
-            return entry(path);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
     }
 }

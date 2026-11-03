@@ -11,8 +11,8 @@ spring:
     name: droppers
   servlet:
     multipart:
-      max-file-size: ${MULTIPART_MAX_FILE_SIZE:50MB}
-      max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:50MB}
+      max-file-size: ${MULTIPART_MAX_FILE_SIZE:1GB}
+      max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:1GB}
   jackson:
     default-property-inclusion: ${JACKSON_DEFAULT_PROPERTY_INCLUSION:non_null}
   datasource:
@@ -21,6 +21,7 @@ spring:
     password: ${DATABASE_PASSWORD:droppers}
   jpa:
     show-sql: ${JPA_SHOW_SQL:false}
+    open-in-view: false
   liquibase:
     change-log: classpath:db/changelog-master.xml
 
@@ -29,9 +30,15 @@ logging:
     root: INFO
 
 droppers:
+  upload:
+    max-file-size-bytes: ${DROPPERS_MAX_UPLOAD_BYTES:1073741824}
+    staging-ttl-hours: ${DROPPERS_UPLOAD_STAGING_TTL_HOURS:24}
+    cleanup-interval-millis: ${DROPPERS_UPLOAD_CLEANUP_INTERVAL_MILLIS:3600000}
   security:
     allowed-hosts: ${DROPPERS_ALLOWED_HOSTS:localhost,127.0.0.1,::1}
     requests-per-minute: ${DROPPERS_RATE_LIMIT_PER_MINUTE:120}
     require-tls-for-lan: ${DROPPERS_REQUIRE_TLS_FOR_LAN:true}
     device-session-ttl-days: ${DROPPERS_DEVICE_SESSION_TTL_DAYS:30}
-    device-portal-url: ${DROPPERS_DEVICE_PORTAL_URL}
+    admin-token: ${DROPPERS_ADMIN_TOKEN:}
+    trusted-proxies: ${DROPPERS_TRUSTED_PROXIES:}
+    device-portal-url: ${DROPPERS_DEVICE_PORTAL_URL:}

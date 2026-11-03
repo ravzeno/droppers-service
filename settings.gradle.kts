@@ -1,1 +1,1 @@
-rootProject.name = "droppers"
+rootProject.name = "droppers-service"

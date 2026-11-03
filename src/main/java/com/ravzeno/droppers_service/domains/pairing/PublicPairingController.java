@@ -10,14 +10,18 @@ import com.ravzeno.droppers_service.domains.pairing.dto.CreatePairingClaimRespon
 import com.ravzeno.droppers_service.domains.pairing.dto.PairingClaimResponse;
 import com.ravzeno.droppers_service.domains.pairing.dto.PairingResponse;
 import jakarta.validation.Valid;
-import java.util.List;
 import lombok.AllArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @AllArgsConstructor
-@RequestMapping("/api/v1/pairing")
-public class PairingController {
+@RequestMapping("/public/api/v1/pairing")
+public class PublicPairingController {
     private final PairingService pairing;
 
     @PostMapping
@@ -37,19 +41,9 @@ public class PairingController {
         return SuccessResponse.create(pairing.createClaim(request));
     }
 
-    @GetMapping("/claims/pending")
-    public SuccessResponse<List<PairingClaimResponse>> pendingClaims() {
-        return SuccessResponse.create(pairing.pendingClaims());
-    }
-
     @GetMapping("/claims/{claimId}")
     public SuccessResponse<PairingClaimResponse> findClaim(@PathVariable String claimId) {
         return SuccessResponse.create(pairing.findClaim(claimId));
-    }
-
-    @PostMapping("/claims/{claimId}/approve")
-    public SuccessResponse<PairingClaimResponse> approveClaim(@PathVariable String claimId) {
-        return SuccessResponse.create(pairing.approveClaim(claimId));
     }
 
     @PostMapping("/claims/{claimId}/complete")

@@ -1,4 +1,4 @@
-package com.ravzeno.droppers_service.domains.device.dto;
+package com.ravzeno.droppers_service.domains.device.dto.get_all;
 
 import java.time.Instant;
 import java.util.UUID;

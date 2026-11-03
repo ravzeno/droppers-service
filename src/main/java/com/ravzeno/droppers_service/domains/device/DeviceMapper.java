@@ -1,6 +1,6 @@
 package com.ravzeno.droppers_service.domains.device;
 
-import com.ravzeno.droppers_service.domains.device.dto.DeviceDto;
+import com.ravzeno.droppers_service.domains.device.dto.get_all.DeviceDto;
 import com.ravzeno.droppers_service.domains.device.model.Device;
 import org.springframework.stereotype.Service;
 

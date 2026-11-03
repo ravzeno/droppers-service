@@ -1,10 +1,9 @@
 package com.ravzeno.droppers_service.ci.generate_database;
 
+import java.util.List;
 import org.assertj.core.util.Lists;
 import org.junit.platform.commons.util.StringUtils;
 import org.springframework.test.context.ActiveProfilesResolver;
-
-import java.util.List;
 
 public class GenerateDatabaseProfileForDiffValidateResolver implements ActiveProfilesResolver {
 

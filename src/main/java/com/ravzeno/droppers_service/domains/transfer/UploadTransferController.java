@@ -15,16 +15,16 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @AllArgsConstructor
-@RequestMapping("/api/v1/transfers/uploads")
+@RequestMapping("/device/api/v1/transfers/uploads")
 public class UploadTransferController {
     private final UploadTransferService uploadTransferService;
 
     @PostMapping
-    public SuccessResponse<Void> create(@Valid @RequestBody CreateUploadRequest request) {
-        uploadTransferService.create(
-                request.destinationPath(), request.fileName(), request.expectedBytes());
-
-        return SuccessResponse.create();
+    public SuccessResponse<UploadTransferResponse> create(
+            @Valid @RequestBody CreateUploadRequest request) {
+        return SuccessResponse.create(
+                uploadTransferService.create(
+                        request.destinationPath(), request.fileName(), request.expectedBytes()));
     }
 
     @PutMapping(path = "/{id}/content", consumes = MediaType.APPLICATION_OCTET_STREAM_VALUE)
