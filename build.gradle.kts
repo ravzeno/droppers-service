@@ -5,7 +5,7 @@ plugins {
     id("com.diffplug.spotless") version "6.25.0"
 }
 
-group = "ravzeno.droppers_service"
+group = "com.ravzeno"
 version = "0.1.0-SNAPSHOT"
 
 java {
@@ -24,8 +24,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.liquibase:liquibase-core")
-    implementation("org.hibernate.orm:hibernate-community-dialects")
-    implementation("org.xerial:sqlite-jdbc:3.49.1.0")
+    runtimeOnly("org.postgresql:postgresql")
     implementation("com.google.zxing:core:3.5.3")
     implementation("com.google.zxing:javase:3.5.3")
 
@@ -33,8 +32,13 @@ dependencies {
     annotationProcessor("org.projectlombok:lombok")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testRuntimeOnly("com.h2database:h2")
     testCompileOnly("org.projectlombok:lombok")
     testAnnotationProcessor("org.projectlombok:lombok")
+
+    implementation("com.querydsl:querydsl-jpa:5.1.0:jakarta")
+    annotationProcessor("com.querydsl:querydsl-apt:5.1.0:jakarta")
+    annotationProcessor("jakarta.persistence:jakarta.persistence-api")
 }
 
 spotless {

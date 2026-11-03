@@ -1,0 +1,26 @@
+{
+  "database": {
+    "url": "jdbc:postgresql://localhost:5432/droppers",
+    "username": "root",
+    "password": "root",
+    "referenceUrl": "jdbc:postgresql://localhost:5432/droppers_for_diff",
+    "referenceUsername": "root",
+    "referencePassword": "root"
+  },
+  "changeLogCreator": {
+    "initDiffDbScript": {
+      "default": "gradlew test --rerun --tests com.ravzeno.droppers_service.ci.generate_database.GenerateDatabaseForDiff",
+      "unix": "./gradlew test --rerun --tests com.ravzeno.droppers_service.ci.generate_database.GenerateDatabaseForDiff"
+    },
+    "changelogBasePath": "src/main/resources/db/changelogs",
+    "outputCreateChangelogBasePath": "src/main/resources/db/changelogs",
+    "outputGenerateDiffChangelogFilePath": "src/main/resources/db/changelogs",
+    "changelogForExecForDiffDb": {
+      "includes": [
+        "*.p.xml"
+      ],
+      "excludes": [
+      ]
+    }
+  }
+}

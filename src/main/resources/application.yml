@@ -9,21 +9,25 @@ server:
 spring:
   application:
     name: droppers
+  servlet:
+    multipart:
+      max-file-size: ${MULTIPART_MAX_FILE_SIZE:50MB}
+      max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:50MB}
+  jackson:
+    default-property-inclusion: ${JACKSON_DEFAULT_PROPERTY_INCLUSION:non_null}
   datasource:
-    url: "jdbc:sqlite:${DROPPERS_DB:${user.home}/.local/share/droppers/droppers.db}"
-    driver-class-name: org.sqlite.JDBC
+    url: jdbc:postgresql://${DATABASE_HOST:localhost}:${DATABASE_PORT:5432}/${DATABASE_NAME:droppers}
+    username: ${DATABASE_USER:droppers}
+    password: ${DATABASE_PASSWORD:droppers}
   jpa:
-    hibernate:
-      ddl-auto: none
-    open-in-view: false
-    properties:
-      hibernate:
-        dialect: org.hibernate.community.dialect.SQLiteDialect
+    show-sql: ${JPA_SHOW_SQL:false}
   liquibase:
     change-log: classpath:db/changelog-master.xml
+
 logging:
   level:
     root: INFO
+
 droppers:
   security:
     allowed-hosts: ${DROPPERS_ALLOWED_HOSTS:localhost,127.0.0.1,::1}

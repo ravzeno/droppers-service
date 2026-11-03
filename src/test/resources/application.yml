@@ -1,0 +1,34 @@
+server:
+  address: ${DROPPERS_BIND_ADDRESS:127.0.0.1}
+  port: 8765
+  ssl:
+    enabled: ${DROPPERS_TLS_ENABLED:false}
+    key-store: ${DROPPERS_TLS_KEY_STORE:}
+    key-store-password: ${DROPPERS_TLS_KEY_STORE_PASSWORD:}
+    key-alias: ${DROPPERS_TLS_KEY_ALIAS:}
+spring:
+  profiles:
+    active: test
+  application:
+    name: droppers
+  servlet:
+    multipart:
+      max-file-size: ${MULTIPART_MAX_FILE_SIZE:50MB}
+      max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:50MB}
+  jackson:
+    default-property-inclusion: non_null
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:droppers_test;INIT=create domain if not exists jsonb as text;MODE=PostgreSQL
+    username: sa
+    password: password
+  liquibase:
+    enabled: false
+    change-log: classpath:db/changelog-master.xml
+
+droppers:
+  security:
+    allowed-hosts: ${DROPPERS_ALLOWED_HOSTS:localhost,127.0.0.1,::1}
+    requests-per-minute: ${DROPPERS_RATE_LIMIT_PER_MINUTE:120}
+    require-tls-for-lan: ${DROPPERS_REQUIRE_TLS_FOR_LAN:true}
+    device-session-ttl-days: ${DROPPERS_DEVICE_SESSION_TTL_DAYS:30}

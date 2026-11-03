@@ -1,11 +1,12 @@
 # Droppers Service
 
-Droppers Service is the Spring Boot backend for a local-first file management application. It provides APIs for browsing and managing files, upload transfers, trash, trusted devices, and device-pairing flows. Metadata is stored locally in SQLite.
+Droppers Service is the Spring Boot backend for a local-first file management application. It provides APIs for browsing and managing files, upload transfers, trash, trusted devices, and device-pairing flows. File contents remain on the configured filesystem; application metadata is stored in PostgreSQL.
 
 ## Requirements
 
 - Java 21
-- A writable directory for the SQLite database and configured storage root
+- PostgreSQL
+- A configured storage root with read and write access
 
 The Gradle wrapper is included, so a separate Gradle installation is not required.
 
@@ -14,6 +15,8 @@ The Gradle wrapper is included, so a separate Gradle installation is not require
 Start the application with the development script:
 
 ```bash
+psql -U postgres -c "CREATE ROLE droppers LOGIN PASSWORD 'droppers';"
+createdb -U postgres -O droppers droppers
 bash scripts/dev-server.sh
 ```
 
@@ -36,7 +39,11 @@ Configuration is supplied through environment variables. Defaults are designed f
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `DROPPERS_BIND_ADDRESS` | `127.0.0.1` | Network address the server binds to. |
-| `DROPPERS_DB` | `~/.local/share/droppers/droppers.db` | SQLite database location. |
+| `DATABASE_HOST` | `localhost` | PostgreSQL server host. |
+| `DATABASE_PORT` | `5432` | PostgreSQL server port. |
+| `DATABASE_NAME` | `droppers` | PostgreSQL database name. Create the database before starting the app. |
+| `DATABASE_USER` | `droppers` | PostgreSQL login role. |
+| `DATABASE_PASSWORD` | `droppers` | PostgreSQL password. Override the local development default outside a local machine. |
 | `DROPPERS_ALLOWED_HOSTS` | `localhost,127.0.0.1,::1` | Allowed request host values. |
 | `DROPPERS_RATE_LIMIT_PER_MINUTE` | `120` | Per-client request limit. |
 | `DROPPERS_REQUIRE_TLS_FOR_LAN` | `true` | Requires TLS when serving LAN clients. |
@@ -95,10 +102,11 @@ Format source files and verify formatting:
 ## Project layout
 
 ```
-src/main/java/ravzeno/droppers_service/
+src/main/java/com/ravzeno/droppers_service/
   commons/             Shared configuration, converters, security, and exceptions
   domains/<feature>/   Feature-focused code (device, file, pairing, storage, ...)
-    *JpaRepository.java Spring Data repositories, injected directly into services
+    *Repository.java   Spring Data repositories
+    query/             Custom QueryDSL queries and repository facades
     dto/              Request and response types
     model/            Domain models, enums, and JPA entities
 src/main/resources/   Spring configuration and Liquibase database changelogs
@@ -109,10 +117,11 @@ scripts/              Local development helpers
 Keep feature entities and enums in `model`, and use Spring Data repositories
 directly from services/components. Avoid wrapper repositories that only forward
 calls; keep multi-entity transaction boundaries in the service. Entities should
-map the existing SQLite table names explicitly, store enums as strings, and use
-the shared converter for `Instant` columns.
+map the PostgreSQL schema, store enums as strings, and use the shared converter
+for `Instant` columns.
 
 Database schema changes are versioned in `src/main/resources/db/changelogs/`
-and applied by Liquibase at application startup. Existing SQLite databases
-created by the old `schema.sql` initializer are baselined by the initial
-changelog without recreating their tables.
+and applied by Liquibase at application startup. The initial PostgreSQL schema
+is created automatically in the configured database. Existing SQLite data is
+not copied automatically; export and migrate it separately before switching an
+existing installation to PostgreSQL.

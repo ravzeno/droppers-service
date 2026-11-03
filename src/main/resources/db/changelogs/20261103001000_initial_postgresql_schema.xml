@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.4.xsd">
+
+    <changeSet id="20261103001000-create-app-settings" author="droppers">
+        <createTable tableName="app_settings">
+            <column name="key" type="varchar(255)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="value" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="20261103001000-create-device" author="droppers">
+        <createTable tableName="device">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="client_id" type="varchar(255)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="name" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="token_hash" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="paired_at" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_seen_at" type="varchar(255)"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="20261103001000-create-device-session" author="droppers">
+        <createTable tableName="device_session">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="device_id" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="token_hash" type="varchar(255)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="expires_at" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="revoked_at" type="varchar(255)"/>
+        </createTable>
+        <createIndex tableName="device_session" indexName="idx_device_session_device_id">
+            <column name="device_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20261103001000-create-pairing-sessions" author="droppers">
+        <createTable tableName="pairing_sessions">
+            <column name="id" type="text">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="code" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expires_at" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="consumed_at" type="varchar(255)"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="20261103001000-create-pairing-claims" author="droppers">
+        <createTable tableName="pairing_claims">
+            <column name="id" type="text">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="session_id" type="text">
+                <constraints nullable="false"/>
+            </column>
+            <column name="device_id" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="device_name" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="pair_token_hash" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="pairing_claims" indexName="idx_pairing_claims_status_created">
+            <column name="status"/>
+            <column name="created_at"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20261103001000-create-upload-transfer" author="droppers">
+        <createTable tableName="upload_transfer">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="destination_path" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="file_name" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expected_bytes" type="bigint"/>
+            <column name="transferred_bytes" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="failure_reason" type="varchar(255)"/>
+            <column name="created_at" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="upload_transfer" indexName="idx_upload_transfer_updated_at">
+            <column name="updated_at" descending="true"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20261103001000-create-trash-entries" author="droppers">
+        <createTable tableName="trash_entries">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="original_path" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="stored_path" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="item_name" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="item_type" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="size_bytes" type="bigint"/>
+            <column name="deleted_at" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+</databaseChangeLog>

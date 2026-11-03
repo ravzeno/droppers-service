@@ -1,0 +1,12 @@
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://${DATABASE_HOST:localhost}:${DATABASE_PORT:5432}/${DATABASE_NAME:droppers_for_diff}
+    username: ${DATABASE_USER:root}
+    password: ${DATABASE_PASSWORD:root}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create
+  liquibase:
+    enabled: false
