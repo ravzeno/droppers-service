@@ -34,3 +34,4 @@ droppers:
     requests-per-minute: ${DROPPERS_RATE_LIMIT_PER_MINUTE:120}
     require-tls-for-lan: ${DROPPERS_REQUIRE_TLS_FOR_LAN:true}
     device-session-ttl-days: ${DROPPERS_DEVICE_SESSION_TTL_DAYS:30}
+    device-portal-url: ${DROPPERS_DEVICE_PORTAL_URL}

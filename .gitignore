@@ -1,11 +1,59 @@
-**/node_modules/
-**/dist/
-**/build/
-**/.angular/
-**/target/
-.gradle/
-.idea/
-*.db
-*.db-shm
-*.db-wal
-.env
+HELP.md
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+### db evo reborn ###
+db/node_modules/
+db/change-log-for-exec-diff-db/
+
+### personal profile ###
+src/main/resources/application-dev.yml
+db/config-dev.json
+src/test/resources/application-gen-db-for-diff-dev.yml
+
+env/
+
+secret/
+
+### temp file ###
+temp_files/
+
+### Report ###
+reports/
+
+### OS ###
+.DS_Store
