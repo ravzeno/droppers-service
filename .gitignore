@@ -57,3 +57,7 @@ reports/
 
 ### OS ###
 .DS_Store
+/.agents/
+
+# Local Docker Compose secrets
+/.env
